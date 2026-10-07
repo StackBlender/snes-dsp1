@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) 2026 StackBlender
+// Copyright (c) 2026 StackBlender LLC
 //
 // A clean-room DSP-1: the maths coprocessor some SNES cartridges carry (an NEC uPD77C25
 // running the console maker's program), reimplemented from public descriptions of its

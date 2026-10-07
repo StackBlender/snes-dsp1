@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) 2026 StackBlender
+// Copyright (c) 2026 StackBlender LLC
 //
 // dsp1_check ANSWERS...: replays recorded questions and answers (lines "<opcode> <inputs...>
 // = <outputs...>", hex words) through the DSP-1, byte by byte through its registers, and
