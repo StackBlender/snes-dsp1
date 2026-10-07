@@ -4,6 +4,7 @@ A free implementation of the DSP-1, the maths coprocessor in Super Nintendo cart
 such as Super Mario Kart and Pilotwings: one C++ class, about 600 lines, under the GPL.
 It answers the chip's commands with the same results as the original, so emulators can
 run DSP-1 games without the original chip's program, which is the console maker's code.
+It's also much faster than emulating the chip running that program (below).
 
 - `src/dsp1/Dsp1.h`, `src/dsp1/Dsp1.cpp`: the chip, seen through its two registers.
 - `tools/dsp1_check.cpp`: replays recorded questions and answers through it and reports
@@ -32,6 +33,20 @@ In games, over three minutes of each attract mode, the picture is identical to t
 original's frame for frame in Super Mario Kart, and in Pilotwings for all but 3 of 10,800
 frames (from the chip's busy time, below). [docs/exactness.md](docs/exactness.md) has the
 details and what isn't exact yet.
+
+## Speed
+
+The class works out each command's answer directly, without emulating the chip's
+processor running its program. So a DSP-1 game costs about what a game without a
+coprocessor costs. Emulating the chip instruction by instruction, kept in step with the
+main processor, takes about 40% of the time of a Super Mario Kart race. In the same
+emulator on the same desktop, with frames not drawn, a race runs at 9.7 times real time
+with this class and 6.0 times when emulating the chip; Pilotwings in flight runs at 10.2
+and 5.6 times.
+
+The trade-off is timing. Emulating the program reproduces exactly how long the chip stays
+busy after each command, and this class doesn't (see "Using it" and
+[docs/exactness.md](docs/exactness.md)).
 
 ## How it was made
 
