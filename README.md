@@ -26,15 +26,16 @@ isn't in this repository):
 | Multiply, Triangle, Radius, Range, Rotate, Polar, Inverse, sine and cosine | every probed input |
 | Attitude, Objective, Subjective, Scalar | every probed input |
 | Distance (both chip revisions) | every input below 2^30 (see below) |
-| Raster, Target | every probed input and game call below the tilt limit (Raster past it: open) |
-| Parameter | every probed camera up to a zenith angle of about 80°; past it, exact with large screen distances, within one (a few units for the ground point's y) with small ones |
+| Raster, Target | every probed input and game call below the tilt limit; past it, 98.5% of probed angles and all but 4 game calls |
+| Parameter | every probed camera up to the tilt limit (a zenith angle of about 80°); past it, every game call |
 | Project | 99.98% of game calls; every call in most probe sets |
 | Gyrate | every Pilotwings call; 97.8% of random inputs |
 
 In games, over three minutes of each attract mode, the picture is identical to the
-original's frame for frame in Super Mario Kart and in a third game whose camera looks
-straight ahead (past the zenith limit), and in Pilotwings for all but 3 of 10,800 frames
-(from the chip's busy time, below). [docs/exactness.md](docs/exactness.md) has the
+original's frame for frame in Super Mario Kart and in two more games (one whose camera looks
+straight ahead, past the tilt limit), and in Pilotwings for all but 3 of 10,800 frames
+(from the chip's busy time, below). In three other games it matches until the game's own
+state drifts with no answer different: timing inside the chip's commands, not modelled. [docs/exactness.md](docs/exactness.md) has the
 details and what isn't exact yet.
 
 ## Speed

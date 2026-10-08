@@ -90,6 +90,7 @@ private:
 	int heightShifts() const;
 	int32_t zenithLimit() const;
 	int32_t limitCosine() const;
+	int32_t effectiveCosine(int32_t over) const;
 };
 
 } // namespace dsp1

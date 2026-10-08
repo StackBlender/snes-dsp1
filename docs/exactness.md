@@ -20,7 +20,7 @@ DSP1B (the rest); they differ only in Distance.
 - **Distance** below r^2 = 2^30, on both revisions: interpolation in a 49-point square-root
   table, generated from a formula. The first revision starts each odd segment one segment
   low.
-- **Parameter** up to a zenith angle of about 80°.
+- **Parameter** up to the tilt limit, and every game call past it.
 - **Raster** and **Target**, every probed input and every game call below the tilt limit.
   Raster stops when a written word completes a line (games write four words after whole
   lines, or one after three).
@@ -39,17 +39,23 @@ DSP1B (the rest); they differ only in Distance.
   front of the screen gets the screen's depth, and a result between -1/2 and 0 comes out 0.
 - **Gyrate** on random inputs: 97.8%, the rest off by one (precision the chip loses inside
   its arithmetic, not yet reproduced).
-- **Parameter** past a zenith angle of about 80°, where the chip clamps the view. The
-  limit depends on the eye's height: one of 16 values (14516 to 14563) by how far the
-  height must be shifted to normalise it. The eye follows the true angle, while the
-  ground point and the horizon use the limit; Vof is the true angle's horizon minus Vva.
-  Exact with large screen distances; with a screen distance of 256, Vva and Vof can be one
-  off and Cy a few units off. Project uses the true angle throughout and is exact there.
-- **Raster** past the limit: the chip uses an effective cosine, its own stored cosine for
-  the limit (one per height bucket, measured) over the cosine of how far past the limit the
-  camera is, for the screen's distance and the scale along the view; each line's offset
-  uses the true angle's sine. The scale across is exact; the scale along is within one
-  unit.
+- **Past the tilt limit** (a zenith angle of about 80°), where the chip clamps the view.
+  The limit depends on the eye's height: one of 16 values (14516 to 14563) by how far the
+  height must be shifted to normalise it, each with the chip's own cosine for it. Past the
+  limit both Parameter and Raster use an effective cosine: that cosine over the cosine of
+  how far past the limit the camera is, computed as the cosine plus its product with the
+  secant less one in 1.15. The secant is of an angle a little short of the real one, by
+  1.25 to 3.3 units depending on the height (measured; the chip's own steps also jitter by
+  about 0.15 of a unit, which isn't reproduced). It's right on 98.5% of probed angles.
+  - Parameter: the eye follows the true angle; the horizon (Vva) is Les times the
+    effective cosine over the limit's sine; Vof is Les (effective cosine - true cosine) /
+    true sine, rounded up less 3/128 (measured); the ground point is the height over the
+    limit's cosine along the limited view. Every game call seen past the limit is exact.
+    Negative angles past the limit round differently (Vva one off, the ground point a few
+    units), and past about 95° the chip follows another rule; no game seen uses either.
+  - Raster: the screen's distance and the scale along the view use the effective cosine;
+    each line's offset uses the true angle's sine. All but 4 game calls are exact.
+  - Project uses the true angle throughout and is exact there.
 - **Distance** from r^2 = 2^30 up (e.g. two components past 23170): the original reads
   past the end of its table into other program data, giving results unlike a square root.
   This one deliberately doesn't copy that; it returns the true root, capped.

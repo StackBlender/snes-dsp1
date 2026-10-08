@@ -415,9 +415,27 @@ int32_t Dsp1::zenithLimit() const {
 }
 
 int32_t Dsp1::limitCosine() const {
-	static constexpr int16_t kCosines[16] = {5835, 5827, 5820, 5808, 5801, 5789, 5780, 5771,
+	static constexpr int16_t kCosines[16] = {5835, 5830, 5820, 5808, 5801, 5789, 5780, 5771,
 		5758, 5752, 5739, 5730, 5722, 5712, 5703, 5687};
 	return kCosines[heightShifts()];
+}
+
+// Past the limit, the chip's effective cosine: the limit's (limitCosine) over the cosine of how
+// far past the limit the true angle is, as c + (c * S) >> 15, S the secant less one in 1.15,
+// rounded down. Measured: S is the secant of an angle a little short of the distance past the
+// limit, by an amount that depends on the height's bucket (hundredths of a unit below); the
+// secant here is its series to 2^-40, in integers.
+int32_t Dsp1::effectiveCosine(int32_t over) const {
+	static constexpr int16_t kShort[16] = {230, 133, 232, 324, 223, 142, 240, 224, 125, 328, 226,
+		221, 230, 230, 230, 230};
+	int32_t c = limitCosine();
+	int64_t a = int64_t(over < 0 ? -over : over) * 100 - kShort[heightShifts()];
+	if(a <= 0) return c;
+	const int64_t kStep = 105414357; // round(2 pi 2^40 / 65536): one angle unit in 2^-40 radians
+	__int128 x = __int128(a) * kStep / 100;
+	__int128 x2 = (x * x) >> 40, x4 = (x2 * x2) >> 40, x6 = (x4 * x2) >> 40;
+	int32_t secant = int32_t((x2 / 2 + 5 * x4 / 24 + 61 * x6 / 720) >> 25);
+	return c + ((c * secant) >> 15);
 }
 
 void Dsp1::parameter() {
@@ -434,36 +452,39 @@ void Dsp1::parameter() {
 	c.cosA = cos(c.aas);
 	c.screen = (c.les * c.cosZ) >> 15;
 
-	// The horizon: -Les cos / sin, as (Les cos) times 1 / sin.
-	int32_t vva = 0;
-	if(int32_t t = c.screen) {
+	// The horizon: -Les cos / sin, as (Les cos) times 1 / sin. Past the limit, the cosine is
+	// the effective one (effectiveCosine) and the sine the limit's.
+	int32_t over = past ? c.azs - azs : 0;
+	int32_t ce = past ? effectiveCosine(over) : c.cosZ;
+	auto horizon = [](int32_t lesCos, int32_t sinZ) {
+		if(!lesCos) return 0;
 		int s;
-		int32_t tn = normalise(t, s);
-		Inverse r = inverse(c.sinZ, 0);
-		vva = clamp15(shiftBy(-((tn * r.m) >> 15), r.e - s));
-	}
-	// Past the limit, the screen's centre moves by the difference between the limit's horizon
-	// and the true angle's (Les cos / sin of each).
+		int32_t tn = normalise(lesCos, s);
+		Inverse r = inverse(sinZ, 0);
+		return clamp15(shiftBy(-((tn * r.m) >> 15), r.e - s));
+	};
+	int32_t vva = horizon(past ? (c.les * ce) >> 15 : c.screen, c.sinZ);
+	// Past the limit, the screen's centre moves by Les (ce - cos) / sin of the true angle,
+	// rounded up less 3/128 (measured).
 	int32_t trueSin = sin(c.azs), trueCos = cos(c.azs);
-	if(past) {
-		int32_t h = 0;
-		if(int32_t tt = (c.les * trueCos) >> 15) {
-			int s;
-			int32_t tn = normalise(tt, s);
-			Inverse r = inverse(trueSin, 0);
-			h = clamp15(shiftBy(-((tn * r.m) >> 15), r.e - s));
-		}
-		vof = clamp15(h - vva);
+	if(past && trueSin) {
+		int64_t num = int64_t(c.les) * (ce - trueCos) * 128 + int64_t(trueSin) * 125, den = int64_t(trueSin) * 128;
+		int64_t q = num / den;
+		if(num % den && (num < 0) != (den < 0)) q--;
+		vof = clamp15(int32_t(q));
+	} else if(past) {
+		vof = clamp15(horizon((c.les * trueCos) >> 15, trueSin) - vva);
 	}
 
 	// The eye: Lfe behind the base point along the true view; the ground point at the
-	// centre is T along the (limited) view from it, T the eye's height over cos Azs.
+	// centre is T along the (limited) view from it, T the eye's height over cos Azs (past the
+	// limit, over the limit's cosine as the chip keeps it).
 	c.height = wrap(c.fz + ((c.lfe * ((trueCos * 32767) >> 15)) >> 15));
 	int32_t t = 0;
 	if(c.height) {
 		int s;
 		int32_t hn = normalise(c.height, s);
-		Inverse r = inverse(c.cosZ, 0);
+		Inverse r = inverse(past ? limitCosine() : c.cosZ, 0);
 		t = clamp16(shiftBy((hn * r.m) >> 15, r.e - s));
 	}
 	int32_t along = (t * c.sinZ) >> 15;
@@ -480,14 +501,13 @@ int32_t Dsp1::rasterScale(int32_t line, int32_t& y, int half) const {
 	auto& c = m_camera;
 	y = 0;
 	if(!c.height) return 0;
-	// Past the zenith limit the chip uses an effective cosine: the limit's (as the chip keeps
-	// it, limitCosine) over the cosine of how far past the limit the true angle is. The
-	// screen's distance and the scale along the view use it; each line's offset uses the
-	// true angle's sine. (Below the limit, the angle's own cosine and sine.)
+	// Past the zenith limit the chip uses the effective cosine (effectiveCosine) for the
+	// screen's distance and the scale along the view; each line's offset uses the true
+	// angle's sine. (Below the limit, the angle's own cosine and sine.)
 	int32_t cz = c.cosZ, limit = zenithLimit(), over = 0;
 	if(c.azs > limit) over = c.azs - limit;
 	else if(c.azs < -limit) over = c.azs + limit;
-	if(over) cz = int32_t((int64_t(limitCosine()) << 15) / cos(int16_t(over)));
+	if(over) cz = effectiveCosine(over);
 	int32_t screen = over ? (c.les * cz) >> 15 : c.screen;
 	int32_t d = wrap(screen + ((line * sin(c.azs)) >> 15));
 	Inverse r = inverse(d, 0), rc = inverse(cz, 0);
