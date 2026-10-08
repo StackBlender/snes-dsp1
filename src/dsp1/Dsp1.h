@@ -87,7 +87,9 @@ private:
 	void project();
 	void target();
 	int32_t rasterScale(int32_t line, int32_t& y, int half = 0) const;
+	int heightShifts() const;
 	int32_t zenithLimit() const;
+	int32_t limitCosine() const;
 };
 
 } // namespace dsp1

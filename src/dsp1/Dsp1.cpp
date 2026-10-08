@@ -397,15 +397,27 @@ void Dsp1::begin(uint8_t op) {
 // Past it, Vof and Vva are exact on the cameras one game uses (Les 256), Cx exact, Cy within
 // a few units; the eye still follows the true angle (and Project uses it throughout).
 // The zenith angle's limit, about 79.8 degrees, by the eye's height: one per count of shifts
-// that normalise the height (measured 2026-10-07; a height of 0 counts as 15).
-int32_t Dsp1::zenithLimit() const {
-	static constexpr int16_t kLimits[16] = {14516, 14519, 14521, 14524, 14527, 14532, 14534, 14537,
-		14542, 14542, 14547, 14550, 14553, 14555, 14560, 14563};
+// that normalise the height (measured 2026-10-07; a height of 0 counts as 15). With each, the
+// cosine the chip uses for it, which isn't quite the table's at that angle (measured from
+// Raster; the first two and last three are only bounded by the probes).
+int Dsp1::heightShifts() const {
 	auto& c = m_camera;
 	int32_t eyeHeight = wrap(c.fz + ((c.lfe * ((cos(c.azs) * 32767) >> 15)) >> 15));
 	int shifts = 15;
 	if(eyeHeight) normalise(eyeHeight, shifts);
-	return kLimits[std::min(shifts, 15)];
+	return std::min(shifts, 15);
+}
+
+int32_t Dsp1::zenithLimit() const {
+	static constexpr int16_t kLimits[16] = {14516, 14519, 14521, 14524, 14527, 14532, 14534, 14537,
+		14542, 14542, 14547, 14550, 14553, 14555, 14560, 14563};
+	return kLimits[heightShifts()];
+}
+
+int32_t Dsp1::limitCosine() const {
+	static constexpr int16_t kCosines[16] = {5835, 5827, 5820, 5808, 5801, 5789, 5780, 5771,
+		5758, 5752, 5739, 5730, 5722, 5712, 5703, 5687};
+	return kCosines[heightShifts()];
 }
 
 void Dsp1::parameter() {
@@ -468,23 +480,21 @@ int32_t Dsp1::rasterScale(int32_t line, int32_t& y, int half) const {
 	auto& c = m_camera;
 	y = 0;
 	if(!c.height) return 0;
-	// The screen's distance at the limited angle, but each line's offset from it at the true
-	// zenith angle (the same below the limit).
-	int32_t d = wrap(c.screen + ((line * sin(c.azs)) >> 15));
-	Inverse r = inverse(d, 0), rc = inverse(c.cosZ, 0);
+	// Past the zenith limit the chip uses an effective cosine: the limit's (as the chip keeps
+	// it, limitCosine) over the cosine of how far past the limit the true angle is. The
+	// screen's distance and the scale along the view use it; each line's offset uses the
+	// true angle's sine. (Below the limit, the angle's own cosine and sine.)
+	int32_t cz = c.cosZ, limit = zenithLimit(), over = 0;
+	if(c.azs > limit) over = c.azs - limit;
+	else if(c.azs < -limit) over = c.azs + limit;
+	if(over) cz = int32_t((int64_t(limitCosine()) << 15) / cos(int16_t(over)));
+	int32_t screen = over ? (c.les * cz) >> 15 : c.screen;
+	int32_t d = wrap(screen + ((line * sin(c.azs)) >> 15));
+	Inverse r = inverse(d, 0), rc = inverse(cz, 0);
 	int s;
 	int32_t hn = normalise(c.height, s);
 	int32_t xm = (hn * r.m) >> 15;
-	// Along the view, 1 / cos of the limited angle, times the cosine of how far the true
-	// angle is past it (1 below the limit).
-	int32_t over = 0, limit = zenithLimit();
-	if(c.azs > limit) over = c.azs - limit;
-	else if(c.azs < -limit) over = c.azs + limit;
-	if(over) {
-		int32_t k = (rc.m * cos(int16_t(over))) >> 15;
-		y = saturate(shiftBy((xm * k) >> 15, rc.e + r.e - s - 7 - half));
-	} else
-		y = saturate(shiftBy((xm * rc.m) >> 15, rc.e + r.e - s - 7 - half));
+	y = saturate(shiftBy((xm * rc.m) >> 15, rc.e + r.e - s - 7 - half));
 	return saturate(shiftBy(xm, r.e - s - 7 - half));
 }
 
