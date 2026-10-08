@@ -331,11 +331,14 @@ void Dsp1::writeData(uint8_t value) {
 		if(int(m_in.size()) == m_need) execute();
 		return;
 	}
-	// A word written while results are due takes one result's place; Raster stops at the
-	// end of the line it was in.
+	// A word written while results are due takes one result's place. Raster stops when a
+	// written word completes a line: games read whole lines and write a line's four words
+	// (the next line's places), or read part of a line and write the rest.
 	if(m_raster) {
+		if(m_outAt >= m_out.size()) nextRasterLine();
 		m_outAt++;
-		if(++m_rasterWrites >= 4 && m_outAt >= m_out.size()) {
+		m_rasterWrites++;
+		if(m_outAt >= m_out.size()) {
 			m_raster = false;
 			m_mode = Mode::Command;
 		}
@@ -345,11 +348,14 @@ void Dsp1::writeData(uint8_t value) {
 }
 
 uint8_t Dsp1::readData() {
+	// Read with no results due (waiting for a command, or past a command's results), the
+	// data register gives $80.
+	if(m_mode == Mode::Command) return 0x80;
 	if(m_mode != Mode::Output) return m_lastRead;
 	if(m_outAt >= m_out.size()) {
 		if(!m_raster) {
 			m_mode = Mode::Command;
-			return m_lastRead;
+			return 0x80;
 		}
 		nextRasterLine();
 	}
@@ -394,7 +400,14 @@ void Dsp1::parameter() {
 	auto& c = m_camera;
 	auto& in = m_in;
 	c = {in[0], in[1], in[2], in[3], in[4], in[5], in[6]};
-	const int32_t kLimit = 14532; // the zenith angle's limit, about 79.8 degrees (approximate: the chip's varies a little with the height)
+	// The zenith angle's limit, about 79.8 degrees, by the eye's height: one per count of
+	// shifts that normalise the height (measured: 2026-10-07; a height of 0 as 15).
+	static constexpr int16_t kLimits[16] = {14516, 14519, 14521, 14524, 14527, 14532, 14534, 14537,
+		14542, 14542, 14547, 14550, 14553, 14555, 14560, 14563};
+	int32_t eyeHeight = wrap(c.fz + ((c.lfe * ((cos(c.azs) * 32767) >> 15)) >> 15));
+	int shifts = 15;
+	if(eyeHeight) normalise(eyeHeight, shifts);
+	const int32_t kLimit = kLimits[std::min(shifts, 15)];
 	int32_t azs = c.azs, vof = 0;
 	bool past = azs > kLimit || azs < -kLimit;
 	if(past) azs = azs > 0 ? kLimit : -kLimit;

@@ -26,8 +26,8 @@ isn't in this repository):
 | Multiply, Triangle, Radius, Range, Rotate, Polar, Inverse, sine and cosine | every probed input |
 | Attitude, Objective, Subjective, Scalar | every probed input |
 | Distance (both chip revisions) | every input below 2^30 (see below) |
-| Raster, Target | every probed input and game call |
-| Parameter | every probed camera up to a zenith angle of about 80°; past it, every output but one exact on the cameras games use (the ground point's y within a few units) |
+| Raster, Target | every probed input and game call below the tilt limit (Raster past it: open) |
+| Parameter | every probed camera up to a zenith angle of about 80°; past it, exact with large screen distances, within one (a few units for the ground point's y) with small ones |
 | Project | 99.98% of game calls; every call in most probe sets |
 | Gyrate | every Pilotwings call; 97.8% of random inputs |
 

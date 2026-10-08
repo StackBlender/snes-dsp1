@@ -21,7 +21,10 @@ DSP1B (the rest); they differ only in Distance.
   table, generated from a formula. The first revision starts each odd segment one segment
   low.
 - **Parameter** up to a zenith angle of about 80°.
-- **Raster** and **Target**, every probed input and every game call. Target uses Raster's
+- **Raster** and **Target**, every probed input and every game call below the tilt limit.
+  Raster stops when a written word completes a line (games write four words after whole
+  lines, or one after three).
+- **The data register** with no results due reads $80. Target uses Raster's
   scales for the line at half size, times the screen position as the 16-bit word h × 256
   (so only the low byte of h and v counts).
 - **Gyrate** on every Pilotwings call.
@@ -36,11 +39,14 @@ DSP1B (the rest); they differ only in Distance.
   front of the screen gets the screen's depth, and a result between -1/2 and 0 comes out 0.
 - **Gyrate** on random inputs: 97.8%, the rest off by one (precision the chip loses inside
   its arithmetic, not yet reproduced).
-- **Parameter** past a zenith angle of about 80°, where the chip clamps the view. The eye
-  follows the true angle, while the ground point and the horizon use the limit; Vof is the
-  true angle's horizon minus Vva. Vof, Vva and Cx are exact on the cameras a game uses
-  there (a screen distance of 256); Cy is a few units off, and Vva is off by one with a
-  negative screen distance. Project uses the true angle throughout and is exact there.
+- **Parameter** past a zenith angle of about 80°, where the chip clamps the view. The
+  limit depends on the eye's height: one of 16 values (14516 to 14563) by how far the
+  height must be shifted to normalise it. The eye follows the true angle, while the
+  ground point and the horizon use the limit; Vof is the true angle's horizon minus Vva.
+  Exact with large screen distances; with a screen distance of 256, Vva and Vof can be one
+  off and Cy a few units off. Project uses the true angle throughout and is exact there.
+- **Raster** past the limit: not yet worked out (the first lines and the second scale
+  differ). Below the limit it's exact.
 - **Distance** from r^2 = 2^30 up (e.g. two components past 23170): the original reads
   past the end of its table into other program data, giving results unlike a square root.
   This one deliberately doesn't copy that; it returns the true root, capped.
