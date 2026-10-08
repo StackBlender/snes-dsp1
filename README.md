@@ -72,10 +72,12 @@ chip.loadState(state.data(), state.size());
 
 Map the data and status registers where the cartridge board puts them. The class answers
 at once; `takeWork()` reports what the chip just started, for a host that models how long
-the original stays busy (some games wait on the ready bit). Typical busy times, in SNES
-master cycles after the last parameter byte: Parameter about 1470, Project about 1100,
-Target 352, Raster about 360 per line, Attitude about 290, Gyrate 260-460, Distance
-180-240, Inverse about 115. The original's times vary with the data, which this doesn't
+the original stays busy (some games wait on the ready bit). Busy times measured exactly
+on the original, in SNES master cycles after the last input byte (median, and the range
+over two games' calls): Parameter 1427 (1365-1489), Project 1046 (921-1210), Raster's first
+line 339 (328-365), Target 339 (328-382), Attitude 257-268, Distance 218 (144-251),
+Inverse 113 (102-113), Gyrate 65 (8-277), Subjective, Objective and Scalar 14, Multiply,
+Triangle and Rotate 11. The original's times vary with the data, which this doesn't
 model.
 
 ```sh

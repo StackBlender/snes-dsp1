@@ -37,7 +37,9 @@ DSP1B (the rest); they differ only in Distance.
 - **Distance** from r^2 = 2^30 up (e.g. two components past 23170): the original reads
   past the end of its table into other program data, giving results unlike a square root.
   This one deliberately doesn't copy that; it returns the true root, capped.
-- **Busy time.** The class answers at once; how long the original stays busy varies with
-  the data (Project about 920-1210 master cycles), and that isn't modelled. With typical
-  times in the host (see the README), Pilotwings' picture differs in 3 of 10,800 frames,
-  where a game's command order shifts by one step at a frame boundary.
+- **Busy time.** The class answers at once. How long the original stays busy varies with
+  the data (Project 921-1210 master cycles), and that isn't modelled. With the median
+  times in the host (see the README), one game's picture differs in 3 of 10,800 frames,
+  where its command order shifts by one step at a frame boundary. Giving the host each
+  call's exact time doesn't remove them: the game decides by the time left in the frame,
+  which also depends on timing within the chip's handling of each byte.
