@@ -396,18 +396,23 @@ void Dsp1::begin(uint8_t op) {
 // Exact on every probed camera up to the limit (Azs about 80 degrees, given the inverse).
 // Past it, Vof and Vva are exact on the cameras one game uses (Les 256), Cx exact, Cy within
 // a few units; the eye still follows the true angle (and Project uses it throughout).
+// The zenith angle's limit, about 79.8 degrees, by the eye's height: one per count of shifts
+// that normalise the height (measured 2026-10-07; a height of 0 counts as 15).
+int32_t Dsp1::zenithLimit() const {
+	static constexpr int16_t kLimits[16] = {14516, 14519, 14521, 14524, 14527, 14532, 14534, 14537,
+		14542, 14542, 14547, 14550, 14553, 14555, 14560, 14563};
+	auto& c = m_camera;
+	int32_t eyeHeight = wrap(c.fz + ((c.lfe * ((cos(c.azs) * 32767) >> 15)) >> 15));
+	int shifts = 15;
+	if(eyeHeight) normalise(eyeHeight, shifts);
+	return kLimits[std::min(shifts, 15)];
+}
+
 void Dsp1::parameter() {
 	auto& c = m_camera;
 	auto& in = m_in;
 	c = {in[0], in[1], in[2], in[3], in[4], in[5], in[6]};
-	// The zenith angle's limit, about 79.8 degrees, by the eye's height: one per count of
-	// shifts that normalise the height (measured: 2026-10-07; a height of 0 as 15).
-	static constexpr int16_t kLimits[16] = {14516, 14519, 14521, 14524, 14527, 14532, 14534, 14537,
-		14542, 14542, 14547, 14550, 14553, 14555, 14560, 14563};
-	int32_t eyeHeight = wrap(c.fz + ((c.lfe * ((cos(c.azs) * 32767) >> 15)) >> 15));
-	int shifts = 15;
-	if(eyeHeight) normalise(eyeHeight, shifts);
-	const int32_t kLimit = kLimits[std::min(shifts, 15)];
+	const int32_t kLimit = zenithLimit();
 	int32_t azs = c.azs, vof = 0;
 	bool past = azs > kLimit || azs < -kLimit;
 	if(past) azs = azs > 0 ? kLimit : -kLimit;
@@ -463,12 +468,23 @@ int32_t Dsp1::rasterScale(int32_t line, int32_t& y, int half) const {
 	auto& c = m_camera;
 	y = 0;
 	if(!c.height) return 0;
-	int32_t d = wrap(c.screen + ((line * c.sinZ) >> 15));
+	// The screen's distance at the limited angle, but each line's offset from it at the true
+	// zenith angle (the same below the limit).
+	int32_t d = wrap(c.screen + ((line * sin(c.azs)) >> 15));
 	Inverse r = inverse(d, 0), rc = inverse(c.cosZ, 0);
 	int s;
 	int32_t hn = normalise(c.height, s);
 	int32_t xm = (hn * r.m) >> 15;
-	y = saturate(shiftBy((xm * rc.m) >> 15, rc.e + r.e - s - 7 - half));
+	// Along the view, 1 / cos of the limited angle, times the cosine of how far the true
+	// angle is past it (1 below the limit).
+	int32_t over = 0, limit = zenithLimit();
+	if(c.azs > limit) over = c.azs - limit;
+	else if(c.azs < -limit) over = c.azs + limit;
+	if(over) {
+		int32_t k = (rc.m * cos(int16_t(over))) >> 15;
+		y = saturate(shiftBy((xm * k) >> 15, rc.e + r.e - s - 7 - half));
+	} else
+		y = saturate(shiftBy((xm * rc.m) >> 15, rc.e + r.e - s - 7 - half));
 	return saturate(shiftBy(xm, r.e - s - 7 - half));
 }
 

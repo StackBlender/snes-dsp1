@@ -45,8 +45,9 @@ DSP1B (the rest); they differ only in Distance.
   ground point and the horizon use the limit; Vof is the true angle's horizon minus Vva.
   Exact with large screen distances; with a screen distance of 256, Vva and Vof can be one
   off and Cy a few units off. Project uses the true angle throughout and is exact there.
-- **Raster** past the limit: not yet worked out (the first lines and the second scale
-  differ). Below the limit it's exact.
+- **Raster** past the limit: each line's distance uses the true zenith angle's sine
+  (exact), and the scale along the view gains the cosine of how far past the limit the
+  camera is; that second scale is still a few units off at 90 degrees.
 - **Distance** from r^2 = 2^30 up (e.g. two components past 23170): the original reads
   past the end of its table into other program data, giving results unlike a square root.
   This one deliberately doesn't copy that; it returns the true root, capped.
