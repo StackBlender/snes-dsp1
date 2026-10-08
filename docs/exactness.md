@@ -14,6 +14,9 @@ DSP1B (the rest); they differ only in Distance.
 - **Inverse** (1 / (m 2^e) as a mantissa and exponent): a seed per 128 values of the
   mantissa and two Newton steps in the chip's fixed point. The camera commands use it.
 - **Attitude, Objective, Subjective, Scalar.**
+- **Memory size** (2F): the chip's version, 1.00 on the first revision and 1.01 on DSP1B. The
+  memory test (0F) answers 0. The memory dump returns the chip's internal data, which isn't
+  reproduced.
 - **Distance** below r^2 = 2^30, on both revisions: interpolation in a 49-point square-root
   table, generated from a formula. The first revision starts each odd segment one segment
   low.
@@ -33,8 +36,11 @@ DSP1B (the rest); they differ only in Distance.
   front of the screen gets the screen's depth, and a result between -1/2 and 0 comes out 0.
 - **Gyrate** on random inputs: 97.8%, the rest off by one (precision the chip loses inside
   its arithmetic, not yet reproduced).
-- **Parameter** past a zenith angle of about 80°, where the chip clamps the view: an
-  approximation. No game seen goes there.
+- **Parameter** past a zenith angle of about 80°, where the chip clamps the view. The eye
+  follows the true angle, while the ground point and the horizon use the limit; Vof is the
+  true angle's horizon minus Vva. Vof, Vva and Cx are exact on the cameras a game uses
+  there (a screen distance of 256); Cy is a few units off, and Vva is off by one with a
+  negative screen distance. Project uses the true angle throughout and is exact there.
 - **Distance** from r^2 = 2^30 up (e.g. two components past 23170): the original reads
   past the end of its table into other program data, giving results unlike a square root.
   This one deliberately doesn't copy that; it returns the true root, capped.

@@ -387,8 +387,9 @@ void Dsp1::begin(uint8_t op) {
 // the screen's distance from the eye Les, the azimuth Aas and the zenith angle Azs. Out:
 // Vof and Vva (screen lines: the shift of the screen's centre when the zenith angle is past
 // its limit, and the horizon's line), and Cx, Cy (the ground point at the screen's centre).
-// Exact on every probed camera up to the limit (Azs about 80 degrees, given the inverse);
-// past it, not yet worked out (an approximation).
+// Exact on every probed camera up to the limit (Azs about 80 degrees, given the inverse).
+// Past it, Vof and Vva are exact on the cameras one game uses (Les 256), Cx exact, Cy within
+// a few units; the eye still follows the true angle (and Project uses it throughout).
 void Dsp1::parameter() {
 	auto& c = m_camera;
 	auto& in = m_in;
@@ -411,15 +412,23 @@ void Dsp1::parameter() {
 		Inverse r = inverse(c.sinZ, 0);
 		vva = clamp15(shiftBy(-((tn * r.m) >> 15), r.e - s));
 	}
-	if(past) { // approximate: the screen keeps the limit's angle and moves by Les tan(over)
-		int32_t over = c.azs - azs;
-		Inverse r = inverse(cos(int16_t(over)), 0);
-		vof = clamp15(shiftBy(int64_t(c.les) * ((sin(int16_t(over)) * r.m) >> 15), r.e - 15));
+	// Past the limit, the screen's centre moves by the difference between the limit's horizon
+	// and the true angle's (Les cos / sin of each).
+	int32_t trueSin = sin(c.azs), trueCos = cos(c.azs);
+	if(past) {
+		int32_t h = 0;
+		if(int32_t tt = (c.les * trueCos) >> 15) {
+			int s;
+			int32_t tn = normalise(tt, s);
+			Inverse r = inverse(trueSin, 0);
+			h = clamp15(shiftBy(-((tn * r.m) >> 15), r.e - s));
+		}
+		vof = clamp15(h - vva);
 	}
 
-	// The eye: Lfe behind the base point along the view; the ground point at the centre
-	// is T along the view from it, T the eye's height over cos Azs.
-	c.height = wrap(c.fz + ((c.lfe * ((c.cosZ * 32767) >> 15)) >> 15));
+	// The eye: Lfe behind the base point along the true view; the ground point at the
+	// centre is T along the (limited) view from it, T the eye's height over cos Azs.
+	c.height = wrap(c.fz + ((c.lfe * ((trueCos * 32767) >> 15)) >> 15));
 	int32_t t = 0;
 	if(c.height) {
 		int s;
@@ -428,7 +437,7 @@ void Dsp1::parameter() {
 		t = clamp16(shiftBy((hn * r.m) >> 15, r.e - s));
 	}
 	int32_t along = (t * c.sinZ) >> 15;
-	int32_t ux = (-c.sinZ * c.sinA) >> 15, uy = (c.sinZ * c.cosA) >> 15;
+	int32_t ux = (-trueSin * c.sinA) >> 15, uy = (trueSin * c.cosA) >> 15;
 	push(int16_t(vof));
 	push(int16_t(vva));
 	push(wrap(c.fx + ((c.lfe * ux) >> 15) + ((along * c.sinA) >> 15)));
@@ -471,8 +480,10 @@ void Dsp1::nextRasterLine() {
 void Dsp1::project() {
 	auto& c = m_camera;
 	auto& in = m_in;
-	int32_t ux = (-c.sinZ * c.sinA) >> 15, uy = (c.sinZ * c.cosA) >> 15;
-	int32_t cz = (c.cosZ * 32767) >> 15;
+	// The true zenith angle, even past the limit Parameter keeps its outputs within.
+	int32_t zs = sin(c.azs), zc = cos(c.azs);
+	int32_t ux = (-zs * c.sinA) >> 15, uy = (zs * c.cosA) >> 15;
+	int32_t cz = (zc * 32767) >> 15;
 	int32_t ex = c.fx + ((c.lfe * ux) >> 15), ey = c.fy + ((c.lfe * uy) >> 15);
 	int32_t sx = ex - ((c.les * ux) >> 15), sy = ey - ((c.les * uy) >> 15);
 	int32_t sz = c.height - ((c.les * cz) >> 15);
@@ -507,8 +518,8 @@ void Dsp1::project() {
 	// The camera's axes as 1.15 factors, each product rounded down: across the view,
 	// up it, and along it (Parameter's U, which also places the screen centre).
 	int64_t across = ((x * ((c.cosA * 32767) >> 15)) >> 15) + ((y * ((c.sinA * 32767) >> 15)) >> 15);
-	int64_t up = ((x * ((-c.sinA * c.cosZ) >> 15)) >> 15) + ((y * ((c.cosA * c.cosZ) >> 15)) >> 15) +
-		((z * -c.sinZ) >> 15);
+	int64_t up = ((x * ((-c.sinA * zc) >> 15)) >> 15) + ((y * ((c.cosA * zc) >> 15)) >> 15) +
+		((z * -zs) >> 15);
 	int64_t ahead = ((x * ux) >> 15) + ((y * uy) >> 15) + ((z * cz) >> 15); // -(along the view), from the screen
 	int64_t depthQ = ((int64_t(c.les) * 32768 >> precise) - ahead) >> extra;
 	// Its whole part (or, when the fixed point's step is a whole unit or more, the depth
@@ -675,6 +686,9 @@ void Dsp1::execute() {
 	}
 	case 0x0e: case 0x1e: case 0x2e: case 0x3e:
 		target();
+		break;
+	case 0x2f: // the chip's version: 1.00 for the first revision, 1.01 for DSP1B
+		push(m_revision == Revision::Dsp1 ? 0x0100 : 0x0101);
 		break;
 	case 0x0a: case 0x1a: case 0x2a: case 0x3a: // Raster
 		m_raster = true;

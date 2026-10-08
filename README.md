@@ -27,13 +27,14 @@ isn't in this repository):
 | Attitude, Objective, Subjective, Scalar | every probed input |
 | Distance (both chip revisions) | every input below 2^30 (see below) |
 | Raster, Target | every probed input and game call |
-| Parameter | every probed camera up to a zenith angle of about 80° (past it, approximate) |
+| Parameter | every probed camera up to a zenith angle of about 80°; past it, every output but one exact on the cameras games use (the ground point's y within a few units) |
 | Project | 99.98% of game calls; every call in most probe sets |
 | Gyrate | every Pilotwings call; 97.8% of random inputs |
 
 In games, over three minutes of each attract mode, the picture is identical to the
-original's frame for frame in Super Mario Kart, and in Pilotwings for all but 3 of 10,800
-frames (from the chip's busy time, below). [docs/exactness.md](docs/exactness.md) has the
+original's frame for frame in Super Mario Kart and in a third game whose camera looks
+straight ahead (past the zenith limit), and in Pilotwings for all but 3 of 10,800 frames
+(from the chip's busy time, below). [docs/exactness.md](docs/exactness.md) has the
 details and what isn't exact yet.
 
 ## Speed
