@@ -1,7 +1,7 @@
 # snes-dsp1
 
 A free implementation of the DSP-1, the maths coprocessor in Super Nintendo cartridges
-such as Super Mario Kart and Pilotwings: one C++ class, about 600 lines, under the GPL.
+such as Super Mario Kart and Pilotwings: one C++ class, about 800 lines, under the GPL.
 It answers the chip's commands with the same results as the original, so emulators can
 run DSP-1 games without the original chip's program, which is the console maker's code.
 It's also much faster than emulating the chip running that program (below).
