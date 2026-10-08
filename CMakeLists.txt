@@ -11,3 +11,9 @@ target_include_directories(dsp1 PUBLIC src)
 # Replays recorded questions and answers through the DSP-1 (see docs/checking.md).
 add_executable(dsp1_check tools/dsp1_check.cpp)
 target_link_libraries(dsp1_check PRIVATE dsp1)
+
+# Saving and loading the chip's state anywhere in a stream of commands changes nothing.
+enable_testing()
+add_executable(state_test tests/state_test.cpp)
+target_link_libraries(state_test PRIVATE dsp1)
+add_test(NAME state COMMAND state_test)

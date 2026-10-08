@@ -7,6 +7,8 @@ run DSP-1 games without the original chip's program, which is the console maker'
 It's also much faster than emulating the chip running that program (below).
 
 - `src/dsp1/Dsp1.h`, `src/dsp1/Dsp1.cpp`: the chip, seen through its two registers.
+- `tests/state_test.cpp`: saving and loading the chip's state mid-command changes nothing
+  (`ctest`).
 - `tools/dsp1_check.cpp`: replays recorded questions and answers through it and reports
   how many it matches ([docs/checking.md](docs/checking.md)).
 
@@ -64,6 +66,8 @@ dsp1::Dsp1 chip(dsp1::Dsp1::Revision::Dsp1B); // Revision::Dsp1 for the first ca
 chip.writeData(byte);         // the data register, a byte at a time
 uint8_t b = chip.readData();
 uint8_t s = chip.readStatus(); // bit 7 ready, bit 4 half a word done, bit 2 awaiting a command
+auto state = chip.saveState(); // for save states: a small blob, the same on every platform
+chip.loadState(state.data(), state.size());
 ```
 
 Map the data and status registers where the cartridge board puts them. The class answers

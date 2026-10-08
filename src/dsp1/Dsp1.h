@@ -42,6 +42,12 @@ public:
 		return w;
 	}
 
+	// The chip's whole state, for a host's save states: a small versioned blob, the same
+	// on every platform. loadState returns false (and changes nothing) if the blob isn't
+	// one this class wrote.
+	std::vector<uint8_t> saveState() const;
+	bool loadState(const uint8_t* data, size_t size);
+
 	// The building blocks, exposed for tests: angles are 16-bit (65536 = a full turn),
 	// results 1.15 fixed point.
 	static int16_t sin(int16_t angle);

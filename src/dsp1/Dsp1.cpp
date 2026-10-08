@@ -201,6 +201,111 @@ void Dsp1::reset() {
 	m_raster = false;
 }
 
+namespace {
+
+// Little-endian fields, so a state moves between platforms.
+struct StateWriter {
+	std::vector<uint8_t> out;
+	void u8(uint8_t v) { out.push_back(v); }
+	void u32(uint32_t v) {
+		for(int i = 0; i < 4; i++) out.push_back(uint8_t(v >> (8 * i)));
+	}
+	void i16(int16_t v) { u8(uint8_t(uint16_t(v))); u8(uint8_t(uint16_t(v) >> 8)); }
+	void i32(int32_t v) { u32(uint32_t(v)); }
+	void words(const std::vector<int16_t>& w) {
+		u32(uint32_t(w.size()));
+		for(int16_t v : w) i16(v);
+	}
+};
+
+struct StateReader {
+	const uint8_t* p;
+	size_t left;
+	bool ok = true;
+	uint8_t u8() {
+		if(!left) { ok = false; return 0; }
+		left--;
+		return *p++;
+	}
+	uint32_t u32() {
+		uint32_t v = 0;
+		for(int i = 0; i < 4; i++) v |= uint32_t(u8()) << (8 * i);
+		return v;
+	}
+	int16_t i16() { uint16_t lo = u8(); return int16_t(lo | uint16_t(u8()) << 8); }
+	int32_t i32() { return int32_t(u32()); }
+	bool words(std::vector<int16_t>& w) {
+		uint32_t n = u32();
+		if(!ok || n > 4096) return ok = false;
+		w.assign(n, 0);
+		for(auto& v : w) v = i16();
+		return ok;
+	}
+};
+
+constexpr uint32_t kStateMagic = 0x31505344; // "DSP1"
+constexpr uint8_t kStateVersion = 1;
+
+} // namespace
+
+std::vector<uint8_t> Dsp1::saveState() const {
+	StateWriter w;
+	w.u32(kStateMagic);
+	w.u8(kStateVersion);
+	w.u8(uint8_t(m_revision));
+	w.u8(uint8_t(m_mode));
+	w.u8(m_op);
+	w.i32(m_need);
+	w.words(m_in);
+	w.words(m_out);
+	w.u32(uint32_t(m_outAt));
+	w.u8(m_highByte);
+	w.u8(m_lowByte);
+	w.u8(m_lastRead);
+	w.u8(m_raster);
+	w.i32(m_work);
+	w.i16(m_rasterLine);
+	w.i32(m_rasterWrites);
+	for(auto& matrix : m_matrix)
+		for(auto& row : matrix)
+			for(int16_t v : row) w.i16(v);
+	const Camera& c = m_camera;
+	for(int16_t v : {c.fx, c.fy, c.fz, c.lfe, c.les, c.aas, c.azs}) w.i16(v);
+	for(int32_t v : {c.sinZ, c.cosZ, c.sinA, c.cosA, c.height, c.screen}) w.i32(v);
+	return std::move(w.out);
+}
+
+bool Dsp1::loadState(const uint8_t* data, size_t size) {
+	StateReader r{data, size};
+	if(r.u32() != kStateMagic || r.u8() != kStateVersion) return false;
+	Dsp1 s(*this);
+	s.m_revision = Revision(r.u8());
+	s.m_mode = Mode(r.u8());
+	s.m_op = r.u8();
+	s.m_need = r.i32();
+	r.words(s.m_in);
+	r.words(s.m_out);
+	s.m_outAt = r.u32();
+	s.m_highByte = r.u8();
+	s.m_lowByte = r.u8();
+	s.m_lastRead = r.u8();
+	s.m_raster = r.u8();
+	s.m_work = r.i32();
+	s.m_rasterLine = r.i16();
+	s.m_rasterWrites = r.i32();
+	for(auto& matrix : s.m_matrix)
+		for(auto& row : matrix)
+			for(int16_t& v : row) v = r.i16();
+	Camera& c = s.m_camera;
+	for(int16_t* v : {&c.fx, &c.fy, &c.fz, &c.lfe, &c.les, &c.aas, &c.azs}) *v = r.i16();
+	for(int32_t* v : {&c.sinZ, &c.cosZ, &c.sinA, &c.cosA, &c.height, &c.screen}) *v = r.i32();
+	if(!r.ok || r.left || s.m_outAt > s.m_out.size() + 8 || uint8_t(s.m_mode) > uint8_t(Mode::Output) ||
+	   uint8_t(s.m_revision) > uint8_t(Revision::Dsp1B))
+		return false;
+	*this = std::move(s);
+	return true;
+}
+
 uint8_t Dsp1::readStatus() const {
 	uint8_t s = 0x80; // always ready: the work is done instantly
 	if(m_mode == Mode::Command) s |= 0x04;
