@@ -78,7 +78,7 @@ the original stays busy (some games wait on the ready bit). Busy times measured 
 on the original, in SNES master cycles after the last input byte (median, and the range
 over two games' calls): Parameter 1427 (1365-1489), Project 1046 (921-1210), Raster's first
 line 339 (328-365), Target 339 (328-382), Attitude 257-268, Distance 218 (144-251),
-Inverse 113 (102-113), Gyrate 65 (8-277), Subjective, Objective and Scalar 14, Multiply,
+Inverse 113 (102-113), Polar 93, Gyrate 65 (8-277), Subjective, Objective and Scalar 14, Multiply,
 Triangle and Rotate 11. The original's times vary with the data, which this doesn't
 model.
 
