@@ -29,7 +29,7 @@ isn't in this repository):
 | Raster, Target | every probed input and game call |
 | Parameter | every probed camera up to a zenith angle of about 80° (past it, approximate) |
 | Project | 99.98% of game calls; every call in most probe sets |
-| Gyrate | every Pilotwings call; 97% of random inputs |
+| Gyrate | every Pilotwings call; 97.8% of random inputs |
 
 In games, over three minutes of each attract mode, the picture is identical to the
 original's frame for frame in Super Mario Kart, and in Pilotwings for all but 3 of 10,800

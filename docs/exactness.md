@@ -31,7 +31,8 @@ DSP1B (the rest); they differ only in Distance.
   camera. With a screen distance (Les) well above the 256 both games use, about 90-99%.
   Two of its rules are measured rather than understood: a point less than half a unit in
   front of the screen gets the screen's depth, and a result between -1/2 and 0 comes out 0.
-- **Gyrate** on random inputs: 97%, the rest off by one.
+- **Gyrate** on random inputs: 97.8%, the rest off by one (precision the chip loses inside
+  its arithmetic, not yet reproduced).
 - **Parameter** past a zenith angle of about 80°, where the chip clamps the view: an
   approximation. No game seen goes there.
 - **Distance** from r^2 = 2^30 up (e.g. two components past 23170): the original reads

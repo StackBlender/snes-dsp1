@@ -653,7 +653,7 @@ void Dsp1::execute() {
 		break;
 	case 0x14: case 0x34: { // Gyrate: attitude angles Az, Ax, Ay turned by rates U, F, L
 		// Ax += U sin Ay + F cos Ay (exact); Az += (U cos Ay - F sin Ay) / cos Ax (99%
-		// exact); Ay += L - (U cos Ay + F sin Ay) tan Ax (97% exact, the rest off by one).
+		// exact); Ay += L - (U cos Ay + F sin Ay) tan Ax (98.4% exact, the rest off by one).
 		int32_t cy = cos(in[2]), sy = sin(in[2]), cx = cos(in[1]), sx = sin(in[1]);
 		Inverse r = inverse(cx, 0);
 		int k;
@@ -662,10 +662,11 @@ void Dsp1::execute() {
 			int32_t m = normaliseWide(w, k);
 			dz = clamp15(shiftBy((m * r.m) >> 15, r.e + k - 15));
 		}
-		if(int64_t v = -(int64_t(in[3]) * cy + int64_t(in[4]) * sy); v && sx) {
+		// U cos Ay + F sin Ay is normalised before it's negated (98.4% exact on random input).
+		if(int64_t v = int64_t(in[3]) * cy + int64_t(in[4]) * sy; v && sx) {
 			int32_t m = normaliseWide(v, k), kt;
 			int32_t t = normaliseWide(int64_t(sx) * r.m, kt);
-			dy = clamp15(shiftBy(-((-m * t) >> 15), r.e + k + kt - 30));
+			dy = clamp15(shiftBy(-((int64_t(m) * t) >> 15), r.e + k + kt - 30));
 		}
 		push(wrap(in[0] + dz));
 		push(wrap(in[1] + ((in[3] * sy) >> 15) + ((in[4] * cy) >> 15)));
